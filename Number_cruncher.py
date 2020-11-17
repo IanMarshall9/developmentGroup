@@ -5,30 +5,55 @@ import datetime
 from openpyxl import load_workbook
 
 
+# Function ensures api requests reflect the most up to dat results
 def get_dates():
     # Get today's date
-    today = datetime.date.today() #.strftime('%Y-%m-%d')
-    market_close = datetime()
+    today = datetime.date.today()
+    now = datetime.datetime.now()
+    yesterday = now - datetime.timedelta(days=1)
+    # Create time object for after market close
+    market_close = datetime.time(21, 0, 0)
 
-    #Check if weekday
+    # TODO: Fix this so it's more useful
+    # Check if weekday
     if today.weekday() < 5:
+        # Check if current time is after market close
+        return today.strftime('%Y-%m-%d'), yesterday
 
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-    yesterday = yesterday.strftime('%Y-%m-%d')
+    # If it's the weekend, check if saturday
+    elif today.weekday() == 5:
+        return today.strftime('%Y-%m-%d'), yesterday
+    # If we get here it must be sunday
+    else:
+        friday = now - datetime.timedelta(days=2)
+        return today.strftime('%Y-%m-%d'), friday.strftime('%Y-%m-%d')
 
-    return today, yesterday
 
-data = pd.ExcelFile("Combined BoA-ML Portfolios 6-30-20 v.1.xlsx")
-sheet3 = data.parse("Sheet3")
+# TODO: Catch errors here.
+def load_file():
+    # Load file into data reader
+    ExelFile = pd.ExcelFile("Combined BoA-ML Portfolios 6-30-20 v.1.xlsx")
+    # Select sheet to load desired data
+    sheet3 = ExelFile.parse("Sheet3")
+    # Select column and amount of rows to read into dataframe
+    data = sheet3["Ticker Symbols"][:408]
+    # Strip extra whitespace, remove duplicates
+    cleaned_data = data.dropna().str.strip().drop_duplicates()
 
-ticker_syms = sheet3["Ticker Symbols"][1:220].str.strip()
+    return cleaned_data
 
-test = sheet3["Ticker Symbols"][1:10].str.strip()
+def download_stockPrices(cleaned_data):
+    end, start = get_dates()
 
-aapl = yf.Ticker(test[1]).history(period="1h")
+    all_Tks_Raw = yf.download(list(cleaned_data), start=start, end=end, progress=True)
+    all_Tks = all_Tks_Raw["Adj Close"].transpose()
 
-print(aapl["Close"])
+    all_Tks.to_csv("Adjusted Close.csv")
 
+if __name__ == "__main__":
+
+    data = load_file()
+    download_stockPrices(data)
 
 
 
